@@ -1,0 +1,11 @@
+policy,experiment_name,checkpoint,task,init_state_id,seed,success,steps,failure_mode
+ACT,act_baseline2,010000,8,0,1000,True,72,NA
+ACT,act_baseline2,010000,8,1,1000,True,71,NA
+ACT,act_baseline2,010000,8,2,1000,True,76,NA
+ACT,act_baseline2,010000,8,3,1000,True,72,NA
+ACT,act_baseline2,010000,8,4,1000,True,78,NA
+ACT,act_baseline2,010000,8,5,1000,True,74,NA
+ACT,act_baseline2,010000,8,6,1000,True,72,NA
+ACT,act_baseline2,010000,8,7,1000,True,74,NA
+ACT,act_baseline2,010000,8,8,1000,True,84,NA
+ACT,act_baseline2,010000,8,9,1000,True,70,NA
