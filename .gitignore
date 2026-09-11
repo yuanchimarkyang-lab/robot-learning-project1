@@ -7,4 +7,5 @@ __pycache__/
 data/
 results/**/checkpoints/
 results/**/video/
+results/logs/
 
