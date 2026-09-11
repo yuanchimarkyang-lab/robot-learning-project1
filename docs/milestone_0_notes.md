@@ -114,3 +114,27 @@ Data Record Schema:
 - **How to create more initial state in terms of evaluation both while training and in test time?** We can generate the initial state randomly through scripts/generate_dev_init_states.py
 - **What is the default maximum episode length?** It is 300 for libero_goal. It is defined using TASK_SUITE_MAX_STEPS inside src/lerobot/envs/libero.py 
 - What is the seed for?
+
+
+# Mileston 1 - ACT Training
+- **ACT parameters**
+    - vision_backbone: resnet18
+    - pretrained_backbone_weights: ResNet18_Weights.IMAGENET1K_V1
+    - use_vae: true
+    - kl_weight: 10.0
+    - optimizer_lr: 1.0e-5
+    - optimizer_weight_decay: 1.0e-4
+    - optimizer_lr_backbone: 1.0e-5
+- **training steps**: I have trained up to 50000 steps, but the policy reach 100% success rate at around 800-1000 steps
+- **training duration**: about 100 minutes for 50000 steps: 500 steps/minute
+- **peak VRAM**: 3330 MB
+- **GPU**: 
+    - RTX 5060 Laptop 8 GB
+    - mixed_precision: bf16
+    - gradient_accumulation: step:1
+- **batch size**: 8
+- **effective batch size**: 8 
+- **chunk size**: 50
+- **n_action_steps**: 10
+- **inference latency**
+- **evaluation success rate**: 100% at around 800-1000 steps

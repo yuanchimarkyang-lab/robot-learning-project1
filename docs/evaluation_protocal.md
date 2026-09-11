@@ -62,8 +62,8 @@ A rollout is successful iff LIBERO reports
 
 ## Recorded fields
 - policy: ACT, diffusion, or VLA, 
-- checkpoint: which checkpoint the model is, including which trial
-- epoch: how many epochs have the checkpoint been trained on. 
+- experiment_name: which experiment is it carried out
+- checkpoint: which checkpoint the model is
 - task: which task is it?
 - init_state_id: to identify the initial state
 - seed: the random seed.

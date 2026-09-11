@@ -6,6 +6,8 @@ source "$PROJECT_ROOT/external/lerobot/.venv/bin/activate"
 
 export MUJOCO_GL=egl
 export PYOPENGL_PLATFORM=egl
+export PYTHONPATH="$PROJECT_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+
 
 cd "$PROJECT_ROOT"
 
