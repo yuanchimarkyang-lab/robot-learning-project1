@@ -1,0 +1,11 @@
+policy,experiment_name,checkpoint,task,init_state_id,seed,success,steps,failure_mode
+Diffusion,diffusion_baseline,004500,8,0,1000,True,101,NA
+Diffusion,diffusion_baseline,004500,8,1,1000,True,85,NA
+Diffusion,diffusion_baseline,004500,8,2,1000,False,300,NA
+Diffusion,diffusion_baseline,004500,8,3,1000,True,81,NA
+Diffusion,diffusion_baseline,004500,8,4,1000,True,68,NA
+Diffusion,diffusion_baseline,004500,8,5,1000,True,76,NA
+Diffusion,diffusion_baseline,004500,8,6,1000,True,74,NA
+Diffusion,diffusion_baseline,004500,8,7,1000,True,72,NA
+Diffusion,diffusion_baseline,004500,8,8,1000,True,64,NA
+Diffusion,diffusion_baseline,004500,8,9,1000,False,300,NA
