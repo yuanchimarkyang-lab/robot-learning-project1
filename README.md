@@ -72,7 +72,7 @@ SmolVLA improves rapidly between step 500 and 2000, followed by slower gains and
 ## 5. Example Rollouts
 
 ### Successful rollout
-https://github.com/user-attachments/assets/a2672ca1-9d8a-4260-978d-264eaa9112ea
+https://github.com/user-attachments/assets/14a9d4bd-a024-4107-b0d2-84f0e80704da
 
 ### Grasp failure during early ACT training
 https://github.com/user-attachments/assets/c7453601-61b6-4ad8-aba7-affb0de15c5e
