@@ -1,7 +1,3 @@
-
-
-https://github.com/user-attachments/assets/23cd53e5-880b-4e80-b60b-f1bb0a08e3fa
-
 # Robot Learning on LIBERO — Behavior Cloning
 A controlled comparison of ACT, Diffusion Policy, and SmolVLA on a single manipulation task
 ## 1. Motivation
