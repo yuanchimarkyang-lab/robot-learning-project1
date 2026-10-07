@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# This shell script train a Diffusion policy according to the config file and extract the training metrics
 
 
 PROJECT_ROOT="$HOME/ML/robot-learning-project1"
@@ -6,20 +7,11 @@ TRAIN_ROOT="$HOME/ML/robot-learning-project1/external/lerobot"
 
 cd "$TRAIN_ROOT"
 
-# training from scratch
 lerobot-train \
   --config_path=$HOME/ML/robot-learning-project1/configs/diffusion_bowl_plate_baseline.yaml \
   2>&1 | tee \
-  $HOME/ML/robot-learning-project1/results/logs/diffusion_bowl_plate_baseline2.log
+  $HOME/ML/robot-learning-project1/results/logs/diffusion_bowl_plate_baseline.log
 
-# training from a saved checkpoint
-#lerobot-train \
-#  --config_path=$HOME/ML/robot-learning-project1/results/diffusion_baseline/checkpoints/010000/pretrained_model/train_config.json \
-#  --resume=true \
-#  --steps=15000 \
-#  --save_freq=1000 \
-#  2>&1 | tee \
-#  $HOME/ML/robot-learning-project1/results/logs/diffusion_bowl_plate_baseline3.log
 
 cd "$PROJECT_ROOT"
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+#   This shell script is for convenient activation of the environment 
 
 PROJECT_ROOT="$HOME/ML/robot-learning-project1"
 
