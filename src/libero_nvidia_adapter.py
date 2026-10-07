@@ -1,3 +1,6 @@
+"""
+    This script implements the function to convert NVIDIA Convention to Lerobot Convention
+"""
 import numpy as np
 import torch
 
