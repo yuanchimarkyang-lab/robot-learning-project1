@@ -1,3 +1,7 @@
+
+
+https://github.com/user-attachments/assets/23cd53e5-880b-4e80-b60b-f1bb0a08e3fa
+
 # Robot Learning on LIBERO — Behavior Cloning
 A controlled comparison of ACT, Diffusion Policy, and SmolVLA on a single manipulation task
 ## 1. Motivation
@@ -72,12 +76,14 @@ SmolVLA improves rapidly between step 500 and 2000, followed by slower gains and
 ## 5. Example Rollouts
 
 ### Successful rollout
-
+https://github.com/user-attachments/assets/a2672ca1-9d8a-4260-978d-264eaa9112ea
 
 ### Grasp failure during early ACT training
-
+https://github.com/user-attachments/assets/7b067683-f8bf-4ca2-a1c3-0f837e5979ae
 
 ### SmolVLA recovery attempt
+https://github.com/user-attachments/assets/c5e3fec8-b842-4600-a434-aab7c0792005
+
 
 
 
