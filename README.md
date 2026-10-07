@@ -75,7 +75,7 @@ SmolVLA improves rapidly between step 500 and 2000, followed by slower gains and
 https://github.com/user-attachments/assets/a2672ca1-9d8a-4260-978d-264eaa9112ea
 
 ### Grasp failure during early ACT training
-https://github.com/user-attachments/assets/7b067683-f8bf-4ca2-a1c3-0f837e5979ae
+https://github.com/user-attachments/assets/c7453601-61b6-4ad8-aba7-affb0de15c5e
 
 ### SmolVLA recovery attempt
 https://github.com/user-attachments/assets/c5e3fec8-b842-4600-a434-aab7c0792005
