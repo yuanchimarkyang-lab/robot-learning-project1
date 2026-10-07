@@ -413,6 +413,11 @@ if __name__ == "__main__":
                 done = (first_bool(terminated) or first_bool(truncated))
                 step = step + 1
 
+            if success:
+                # Hold the successful final frame for 1.5 seconds
+                frames.extend([frame.copy() for _ in range(int(1.5 * FPS))])
+                frames_wrist.extend([frame_wrist.copy() for _ in range(int(1.5 * FPS))])
+
 
             eva_dict = {
                 "policy": POLICY_MODE,
