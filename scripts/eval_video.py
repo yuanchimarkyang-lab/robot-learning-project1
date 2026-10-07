@@ -1,6 +1,19 @@
+"""
+On 2026/09/17
+This script is modified with the following changes:
+1. To improve reproducibility, the random seeds for each policy roll-out is supplied as POLICY_SEED_BASE + init_state_id.
+2. To have a unified evaluation script, 
+    (i) the evaluation results will be exported after each checkpoints evaluation 
+    (2) VIDEO_MODE="failure-only" now will only save the videos for the failed case after the current roll-out and 
+        will not read the previously saved evaluation results; "all" will save videos for all cases; "None" will not
+        save videos; "Read" will read the previous evaluation results and only evaluate the failed cases and save videos
+
+"""
+
 from pathlib import Path
 import time
 
+import random
 import numpy as np
 import torch
 
@@ -13,9 +26,14 @@ from lerobot.envs import (
     preprocess_observation,
 )
 from lerobot.envs.configs import LiberoEnv
-from lerobot.policies import make_pre_post_processors
+
+from lerobot.policies.act import ACTPolicy
 from lerobot.policies.diffusion.modeling_diffusion import DiffusionPolicy
+from lerobot.configs import PreTrainedConfig
+from lerobot.policies import make_pre_post_processors, make_policy
+
 from lerobot.utils.constants import ACTION
+from lerobot.utils.io_utils import write_video
 
 from src.libero_nvidia_adapter import (
     nvidia_action_to_libero,
@@ -27,15 +45,7 @@ from src.libero_nvidia_adapter import (
 # ============================================================
 
 PROJECT_ROOT = Path("~/ML/robot-learning-project1").expanduser()
-
-EXP_NAME = "diffusion_baseline"
-
-MODEL_ROOT = (PROJECT_ROOT / f"results/{EXP_NAME}")
-
 DEV_STATES_PATH = (PROJECT_ROOT / "data/eval_init_states/libero_goal_bowl_plate_dev10.npy")
-
-#CHECKPOINT_LIST = ["000500","001000","001500","002000","002500","003000","003500","004000","004500","005000"]
-CHECKPOINT_LIST = ["006000","007000","008000","009000","010000"]
 
 LIBERO_SUITE = "libero_goal"
 LIBERO_TASK_ID = 8
@@ -43,12 +53,43 @@ LIBERO_TASK_ID = 8
 TASK_LANGUAGE = "put the bowl on the plate"
 
 FPS = 20
+VIDEO_FPS = 20
 MAX_EPISODE_STEPS = 300
 EVAL_SEED = 1000
+POLICY_SEED_BASE = 20_000
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-MODE = "test" # "eval" "test"
+POLICY_MODE = "ACT" # "ACT", "Diffusion", "SmolVLA"
+EXP_NAME = "act_baseline3" # "act_baseline3" "diffusion_baseline" "smolvla_lora_baseline"
+MODEL_ROOT = (PROJECT_ROOT / f"results/{EXP_NAME}")
+output_dir = MODEL_ROOT/ "video"
+output_dir.mkdir(parents=True,exist_ok=True)
+ 
+# For ACT
+#CHECKPOINT_LIST = ["000100", "000200", "000300", "000400", "000500","000600","000700","000800","000900","001000",
+#                   "002000", "003000", "004000", "005000", "006000","007000","008000","009000","010000"]
+CHECKPOINT_LIST = ["010000"]
+
+# For Diffusion
+#CHECKPOINT_LIST = ["000500","001000","001500","002000","002500","003000","003500","004000","004500","005000",
+#                   "005500","006000","006500","007000","007500","008000","008500","009000","009500","010000"]
+#CHECKPOINT_LIST = ["010500","011000","011500","012000","012500","013000","013500","014000","014500","015000"]
+#CHECKPOINT_LIST = ["010000","015000"]
+
+
+# For SmolVLA
+#CHECKPOINT_LIST = ["000500","001000","001500","002000","002500","003000","003500","004000","004500","005000"]
+
+
+Eval_MODE = "test" # "dev" "test"
+Video_MODE = "all" # "failure-only" "all" "None" "Read"
+
+
+
+
+
+
 
 # ============================================================
 # Small helpers
@@ -87,26 +128,49 @@ def CHECKPOINT_PATH_func(CHECKPOINT="010000"):
     return (MODEL_ROOT / f"checkpoints/{CHECKPOINT}/pretrained_model") 
 
 
-def print_gpu_memory(tag):
-    if torch.cuda.is_available():
-        torch.cuda.synchronize()
+def tensor_image_to_uint8(image):
+    if torch.is_tensor(image):
+        image = image.detach().cpu().numpy()
 
-        allocated = torch.cuda.memory_allocated() / 1024**3
-        reserved = torch.cuda.memory_reserved() / 1024**3
-        peak = torch.cuda.max_memory_allocated() / 1024**3
+    image = np.asarray(image)
 
-        print(
-            f"[{tag}] "
-            f"allocated={allocated:.2f} GB | "
-            f"reserved={reserved:.2f} GB | "
-            f"peak={peak:.2f} GB"
+    # Remove batch dimension: BCHW -> CHW
+    if image.ndim == 4:
+        image = image[0]
+
+    # CHW -> HWC
+    if (
+        image.ndim == 3
+        and image.shape[0] in (1, 3, 4)
+    ):
+        image = np.transpose(
+            image,
+            (1, 2, 0),
         )
-    
 
-        
+    # float [0,1] -> uint8
+    if np.issubdtype(image.dtype, np.floating):
+        image = np.clip(image, 0.0, 1.0)
+        image = (image * 255).round().astype(np.uint8)
+
+    else:
+        image = image.astype(np.uint8)
+
+    return np.ascontiguousarray(image)
 
 
+def set_eval_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
 
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+
+# make sure cuda use deterministic path for reproducibility
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 
 # ============================================================
 # 1. Sanity checks
@@ -118,13 +182,16 @@ if __name__ == "__main__":
     # ============================================================
 
     print("=" * 70)
-    print("Diffusion -> LIBERO baseline evaluation")
+    print(f"{POLICY_MODE} -> Export LIBERO baseline Video")
     print("=" * 70)
 
     print("Device:", device)
     print("Suite:", LIBERO_SUITE)
     print("LIBERO task ID:", LIBERO_TASK_ID)
     print("Task:", TASK_LANGUAGE)
+    print("Eval_MODE:", Eval_MODE)
+    print("POLICY_MODE:", POLICY_MODE)
+    print("Video_MODE:", Video_MODE)
     print("FPS:", FPS)
     print()
 
@@ -176,7 +243,7 @@ if __name__ == "__main__":
 
     print("Official init states:",libero_env._init_states.shape)
 
-    if MODE == "eval":
+    if Eval_MODE == "dev":
         # ============================================================
         # 3. LOAD dev_states if in evaluation model
         # ============================================================
@@ -194,26 +261,65 @@ if __name__ == "__main__":
 
     for CHECKPOINT in CHECKPOINT_LIST:
         eva_list = []
-
         CHECKPOINT_PATH = CHECKPOINT_PATH_func(CHECKPOINT)
 
         if not CHECKPOINT_PATH.exists():
             raise FileNotFoundError(f"Checkpoint does not exist:\n{CHECKPOINT_PATH}")
         
         # ============================================================
-        # 4. Load Diffusion checkpoint
+        # 4. Load checkpoint accoding to different POLICY
         # ============================================================
 
-        print("Loading Diffusion policy...")
+        print(f"Loading {POLICY_MODE} policy...")
 
-        policy = DiffusionPolicy.from_pretrained(CHECKPOINT_PATH)
-        policy.to(device)
-        policy.eval()
+        if POLICY_MODE=="ACT":
 
-        print("Policy loaded.")
-        print("n_obs_steps:", policy.config.n_obs_steps)
-        print("horizon:", policy.config.horizon)
-        print("n_action_steps:", policy.config.n_action_steps)
+            policy = ACTPolicy.from_pretrained(CHECKPOINT_PATH)
+            policy.to(device)
+            policy.eval()
+            print("Policy loaded.")
+            print("chunk_size:", policy.config.chunk_size)
+            print("n_action_steps:", policy.config.n_action_steps)
+
+        elif POLICY_MODE=="Diffusion":
+
+            policy = DiffusionPolicy.from_pretrained(CHECKPOINT_PATH)
+            policy.to(device)
+            policy.eval()
+            print("Policy loaded.")
+            print("n_obs_steps:", policy.config.n_obs_steps)
+            print("horizon:", policy.config.horizon)
+            print("n_action_steps:", policy.config.n_action_steps)
+
+        elif POLICY_MODE=="SmolVLA":
+            policy_cfg = PreTrainedConfig.from_pretrained(CHECKPOINT_PATH)
+            policy_cfg.pretrained_path = CHECKPOINT_PATH
+            policy_cfg.device = device
+
+            print("Policy loaded.")
+            print("policy type:", policy_cfg.type)
+            print("use_peft:", policy_cfg.use_peft)
+            print("pretrained_path:", policy_cfg.pretrained_path)
+
+            print("n_obs_steps:", policy_cfg.n_obs_steps)
+            print("chunk_size:", policy_cfg.chunk_size)
+            print("n_action_steps:", policy_cfg.n_action_steps)
+
+
+            POLICY_RENAME_MAP = {
+                "observation.images.image2":
+                    "observation.images.wrist_image",
+            }
+
+            policy = make_policy(
+                cfg=policy_cfg,
+                env_cfg=env_cfg,
+                rename_map=POLICY_RENAME_MAP,
+            )
+
+            policy.eval()
+
+            print("\nPolicy Type:",type(policy))
 
         print("\nPolicy input features:")
         for name, feature in policy.config.input_features.items():
@@ -222,6 +328,7 @@ if __name__ == "__main__":
         print("\nPolicy output features:")
         for name, feature in policy.config.output_features.items():
             print(" ", name, "->", feature)
+
 
         # ============================================================
         # 5. Restore ACT's saved pre/postprocessors
@@ -237,25 +344,40 @@ if __name__ == "__main__":
             },
         )
 
-        print("\nPolicy processors loaded.")
 
         env_preprocessor, env_postprocessor = make_env_pre_post_processors(
                 env_cfg=env_cfg,
                 policy_cfg=policy.config,
             )
 
-        for init_state_id in range(libero_env._init_states.shape[0]):
+        
+        #======================================================================
+        # Load INITIAL_STATES_LIST
+        #======================================================================
+        if Video_MODE == "Read":
+            df = pd.read_csv(MODEL_ROOT/ f"evaluation/{Eval_MODE}_{CHECKPOINT}.csv")
+            INITIAL_STATES_LIST = df[df["success"]==False]["init_state_id"].to_list()
+        else:
+            INITIAL_STATES_LIST = list(range(libero_env._init_states.shape[0]))
+
+
+
+        for init_state_id in INITIAL_STATES_LIST:
             local_time = time.localtime()
             # Format and print the time (HH:MM:SS)
             current_time = time.strftime("%Y-%m-%d %H:%M:%S", local_time)
 
             print(f"rollout on {init_state_id} using {CHECKPOINT} starts at {current_time}")
-            print_gpu_memory(f"before state {init_state_id}")
             # Reset it at the start of every episode.
             eval_start = time.perf_counter()
+            
+            frames = []
+            frames_wrist = []
             libero_env.init_state_id = init_state_id
             policy.reset()
+            # set seeds so that the results can be reproduced
             obs, info = env.reset(seed=EVAL_SEED)
+            set_eval_seed(POLICY_SEED_BASE + init_state_id)
             success = False
             done = False
             step = 0
@@ -265,108 +387,43 @@ if __name__ == "__main__":
             # ============================================================
 
             while ((step < MAX_EPISODE_STEPS) and (not success) and (not done)):
-                # ----------------------------------------------------
-                # A. Convert raw Gym observation to LeRobot tensors
-                # ----------------------------------------------------
+                
                 policy_obs = preprocess_observation(obs)
-
-                # ACT does not use language, but adding it keeps this
-                # compatible with LeRobot's standard evaluation pipeline.
                 policy_obs["task"] = [TASK_LANGUAGE]
-
-
-                # ----------------------------------------------------
-                # B. LIBERO-specific observation processing
-                #
-                # Converts structured robot_state into the 8-D
-                # observation.state used during training.
-                # ----------------------------------------------------
                 policy_obs = env_preprocessor(policy_obs)
-
-                # ----------------------------------------------------
-                # C. NVIDIA camera-name compatibility
-                #
-                # Live:
-                # observation.images.image2
-                #
-                # NVIDIA training:
-                # observation.images.wrist_image
-                # ----------------------------------------------------
-
                 policy_obs = rename_libero_observation(policy_obs)
-
-                # ----------------------------------------------------
-                # D. Policy preprocessing
-                #
-                # Includes normalization and device transfer using
-                # the saved training pipeline.
-                # ----------------------------------------------------
+                
+                frame = tensor_image_to_uint8(policy_obs["observation.images.image"])
+                frames.append(frame)
+                frame_wrist = tensor_image_to_uint8(policy_obs["observation.images.wrist_image"])
+                frames_wrist.append(frame_wrist)
 
                 policy_input = preprocessor(policy_obs)
 
-                # ----------------------------------------------------
-                # E. ACT inference
-                # ----------------------------------------------------
-
-                
-
                 with torch.inference_mode():
-                    action = policy.select_action(
-                        policy_input
-                    )
+                    action = policy.select_action(policy_input)
 
-                
 
-                # ----------------------------------------------------
-                # F. Policy postprocessing
-                #
-                # This converts normalized model output back into
-                # NVIDIA dataset action units.
-                # ----------------------------------------------------
                 action_nvidia = postprocessor(action)
-                # ----------------------------------------------------
-                # G. NVIDIA -> LIBERO gripper convention
-                #
-                # g_LIBERO = 1 - 2 * g_NVIDIA
-                # ----------------------------------------------------
                 action_libero = nvidia_action_to_libero(action_nvidia)
-
-                # ----------------------------------------------------
-                # H. Environment action postprocessor
-                #
-                # Currently essentially identity for LIBERO,
-                # but keeping it preserves LeRobot's standard order.
-                # ----------------------------------------------------
                 transition = {ACTION: action_libero}
-
                 transition = env_postprocessor(transition)
-
                 action_env = transition[ACTION]
-
-                # ----------------------------------------------------
-                # I. Validation before touching the simulator
-                # ----------------------------------------------------
 
                 if torch.is_tensor(action_env):
                     action_np = (action_env.detach().cpu().numpy())
                 else:
                     action_np = np.asarray(action_env)
 
-                # ----------------------------------------------------
-                # K. Step simulator
-                # ----------------------------------------------------
-
                 obs, reward, terminated, truncated, info = env.step(action_np)
-
+                
                 success = info_bool(info,"is_success")
-
                 done = (first_bool(terminated) or first_bool(truncated))
-
                 step = step + 1
 
 
             eva_dict = {
-                "policy": "Diffusion",
+                "policy": POLICY_MODE,
                 "experiment_name": EXP_NAME,
                 "checkpoint": CHECKPOINT,
                 "task": LIBERO_TASK_ID,
@@ -382,32 +439,58 @@ if __name__ == "__main__":
 
             print("\n" + "=" * 70)
             print("rollout complete.")
-            print_gpu_memory(f"after state {init_state_id}")
             print("Steps attempted:", step) # on 2026/9/12 changed from step+1 to step to match with the correct step number.
             print("Success:", success)
             print("=" * 70)
-    
+
+            # ============================================================
+            # 7. SAVE Data
+            # ============================================================
+
+            success_tag = "success" if success else "failure"
+            if (Video_MODE == "failure-only" and success_tag == "success") or Video_MODE == "None":
+                print("No video is saved!")
+            else:
+                output_path = (MODEL_ROOT/ "video" /
+                                (
+                                f"{Eval_MODE}_"
+                                f"checkpoing_{CHECKPOINT}_"
+                                f"state_{init_state_id:02d}_"
+                                f"{success_tag}_image.mp4"
+                            )
+                        )
+                write_video(str(output_path),np.stack(frames),VIDEO_FPS)
+
+                output_path = (MODEL_ROOT/ "video" /
+                                (
+                                f"{Eval_MODE}_"
+                                f"checkpoing_{CHECKPOINT}_"
+                                f"state_{init_state_id:02d}_"
+                                f"{success_tag}_wrist_image.mp4"
+                            )
+                        )
+                write_video(str(output_path),np.stack(frames_wrist),VIDEO_FPS)
+
+                print(f"Video Saved Successfully for checkpoint = {CHECKPOINT},"
+                    f" Eval_MODE = {Eval_MODE}, state_id = {init_state_id} at {str(output_path)}")
 
         # ============================================================
         # 7. SAVE Data
         # ============================================================
 
+        if Video_MODE != "Read":
+            df = pd.DataFrame(eva_list)
 
-        df = pd.DataFrame(eva_list)
+            print(df)
+            success_rate = (df["success"].mean())
+            print(f"\nSuccess rate: {success_rate:.1%}")
 
-        print(df)
-        success_rate = (df["success"].mean())
-        print(f"\nSuccess rate: {success_rate:.1%}")
-        if MODE == "eval":
-            output_path = (MODEL_ROOT/ f"evaluation/dev_{CHECKPOINT}.csv")
-        else:
-            output_path = (MODEL_ROOT/ f"evaluation/test_{CHECKPOINT}.csv")
+            output_path = (MODEL_ROOT/ f"evaluation/{Eval_MODE}_{CHECKPOINT}.csv")
+            output_path.parent.mkdir(parents=True,exist_ok=True)
 
-        output_path.parent.mkdir(parents=True,exist_ok=True)
+            df.to_csv(output_path, index=False)
 
-        df.to_csv(output_path, index=False)
-
-        print("Saved:", output_path)
+            print("Saved:", output_path)
 
 
 

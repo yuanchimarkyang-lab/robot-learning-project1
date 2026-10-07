@@ -1,11 +1,44 @@
-external/
-.venv/
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
 .ipynb_checkpoints/
 
+# Environments
+.venv/
+venv/
+
+# External repositories
+external/
+
+# Dataset
 data/
+
+# Training artifacts
 results/**/checkpoints/
 results/**/video/
+results/**/evaluation/
+results/**/*.csv
 results/logs/
+results/**/*model*.safetensors
+results/**/*adapter*.safetensors
 
+
+# Temporary / smoke experiments
+results/*smoke*/
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
+# Notebook for early exploration
+notebooks/
+
+# Obsolete scripts/configs/docs
+scripts/obsolete/
+configs/obsolete/
+docs/obsolete/
+
+# Keep only the lightweighted results
+!results/summary/
+!results/summary/**

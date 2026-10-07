@@ -4,7 +4,7 @@ Diffusion,diffusion_baseline,001500,8,1,1000,False,300,NA
 Diffusion,diffusion_baseline,001500,8,2,1000,False,300,NA
 Diffusion,diffusion_baseline,001500,8,3,1000,False,300,NA
 Diffusion,diffusion_baseline,001500,8,4,1000,False,300,NA
-Diffusion,diffusion_baseline,001500,8,5,1000,False,300,NA
+Diffusion,diffusion_baseline,001500,8,5,1000,True,267,NA
 Diffusion,diffusion_baseline,001500,8,6,1000,False,300,NA
 Diffusion,diffusion_baseline,001500,8,7,1000,False,300,NA
 Diffusion,diffusion_baseline,001500,8,8,1000,False,300,NA
@@ -23,7 +23,7 @@ Diffusion,diffusion_baseline,001500,8,20,1000,False,300,NA
 Diffusion,diffusion_baseline,001500,8,21,1000,False,300,NA
 Diffusion,diffusion_baseline,001500,8,22,1000,False,300,NA
 Diffusion,diffusion_baseline,001500,8,23,1000,False,300,NA
-Diffusion,diffusion_baseline,001500,8,24,1000,True,287,NA
+Diffusion,diffusion_baseline,001500,8,24,1000,False,300,NA
 Diffusion,diffusion_baseline,001500,8,25,1000,False,300,NA
 Diffusion,diffusion_baseline,001500,8,26,1000,False,300,NA
 Diffusion,diffusion_baseline,001500,8,27,1000,False,300,NA

@@ -13,11 +13,11 @@ LOG_PATH = (
 
 OUTPUT_PATH = (
     PROJECT_ROOT
-    / "results/diffusion_baseline/training_metrics2.csv"
+    / "results/diffusion_baseline2/training_metrics.csv"
 )
 
 LOG_FREQ = 50
-steps = 5000
+steps = 15000
 
 
 def parse_number(text):
@@ -50,6 +50,9 @@ patterns = {
     "step_s": r"\bstep_s:([0-9.eE+-]+)",
     "smp/s": r"\bsmp/:([0-9.eE+-]+)",
     "mem_gb": r"\bmem_gb:([0-9.eE+-]+)",
+    "losses_after_forward": r"\blosses_after_forward:([0-9.eE+-]+)",
+    "losses_after_in_ep_bound": r"\blosses_after_in_ep_bound:([0-9.eE+-]+)",
+    "losses_after_rm_padding": r"\blosses_after_rm_padding:([0-9.eE+-]+)",
 }
 
 rows = []

@@ -1,0 +1,405 @@
+# Milestone 3 — SmolVLA LoRA fine-tuning
+# Task: LIBERO Goal "put the bowl on the plate"
+# Dataset: NVIDIA LIBERO LeRobot v3
+
+# ============================================================
+# job name, output, and seed
+# ============================================================
+
+job_name: smolvla_bowl_plate_lora
+
+output_dir: /home/yjc1989/ML/robot-learning-project1/results/smolvla_lora_baseline
+
+resume: false
+seed: 1000
+cudnn_deterministic: false
+
+# ============================================================
+# Dataset
+# ============================================================
+
+dataset:
+  repo_id: nvidia/LIBERO_LeRobot_v3
+  repo_type: dataset
+  root: /home/yjc1989/ML/robot-learning-project1/data/nvidia_libero_v3/libero_goal
+  revision: null
+
+  # Paste the episode IDs produced by inspect_act_training_subset.py
+  episodes:
+    - 0
+    - 43
+    - 47
+    - 52
+    - 54
+    - 68
+    - 69
+    - 72
+    - 80
+    - 87
+    - 102
+    - 104
+    - 109
+    - 128
+    - 132
+    - 134
+    - 143
+    - 153
+    - 158
+    - 170
+    - 172
+    - 184
+    - 189
+    - 203
+    - 228
+    - 236
+    - 241
+    - 242
+    - 247
+    - 255
+    - 260
+    - 263
+    - 267
+    - 274
+    - 276
+    - 291
+    - 300
+    - 329
+    - 337
+    - 339
+    - 347
+    - 348
+    - 370
+    - 371
+    - 389
+    - 391
+    - 422
+    - 424
+    - 427
+
+
+  exclude_episodes: null
+
+  # Closed-loop evaluation is handled separately.
+  video_backend: pyav
+  return_uint8: true
+  eval_split: 0.0
+  streaming: false
+  use_imagenet_stats: true
+  depth_output_unit: mm
+  
+  # Keep augmentation off for the controlled comparison.
+  image_transforms:
+    enable: false
+
+
+# ============================================================
+# Evaluation during training
+# ============================================================
+env: null
+env_eval_freq: 0
+eval_steps: 0
+max_eval_samples: 0
+
+# ============================================================
+# SmolVLA
+# ============================================================
+
+
+policy:
+  type: smolvla
+  # YAML equivalent of:
+  #
+  # --policy.path=lerobot/smolvla_base
+  #
+  # This causes LeRobot to load pretrained weights.
+  pretrained_path: lerobot/smolvla_base
+  
+  # Pin the exact base model revision.
+  pretrained_revision: c83c3163b8ca9b7e67c509fffd9121e66cb96205
+
+
+  device: cuda
+  
+  # Mixed precision is controlled by accelerator.mixed_precision below.
+  use_amp: false
+
+  push_to_hub: false
+ 
+  repo_id: null
+  private: null
+  tags: null
+  license: null
+  
+  # ----------------------------------------------------------
+  # Input/output features
+  # ----------------------------------------------------------
+
+  # Infer the actual NVIDIA LIBERO schema:
+  #
+  # 2 RGB cameras
+  # 8-D state
+  # 7-D action
+  
+  input_features:
+    observation.images.image:
+      type: VISUAL
+      shape: [3, 256, 256]
+
+    observation.images.wrist_image:
+      type: VISUAL
+      shape: [3, 256, 256]
+
+    observation.state:
+      type: STATE
+      shape: [8]
+  
+  output_features:
+    action:
+      type: ACTION
+      shape: [7]
+
+  # ----------------------------------------------------------
+  # Temporal configuration
+  # ----------------------------------------------------------
+
+  # Temporal configuration
+  n_obs_steps: 1
+
+  # Predict a 50-action chunk.
+  chunk_size: 50
+  
+  # Execute 10 actions before replanning.
+  #
+  # 10 actions / 20 Hz = 0.5 s
+  #
+  # This matches your ACT / Diffusion replanning interval.
+  n_action_steps: 10
+
+  # ----------------------------------------------------------
+  # Normalization
+  # ----------------------------------------------------------
+
+  normalization_mapping:
+    VISUAL: IDENTITY
+    STATE: MEAN_STD
+    ACTION: MEAN_STD
+
+  # ----------------------------------------------------------
+  # Model dimensions
+  # ----------------------------------------------------------
+
+  max_state_dim: 32
+  max_action_dim: 32
+  resize_imgs_with_padding:
+    - 512
+    - 512
+  empty_cameras: 0
+  adapt_to_pi_aloha: false
+  use_delta_joint_actions_aloha: false
+
+  # ----------------------------------------------------------
+  # Language
+  # ----------------------------------------------------------
+  tokenizer_max_length: 48
+  # ----------------------------------------------------------
+  # Flow-matching inference
+  # ----------------------------------------------------------
+  num_steps: 10
+  use_cache: true
+  # ----------------------------------------------------------
+  # Fine-tuning behavior
+  # ----------------------------------------------------------
+  freeze_vision_encoder: true
+  train_expert_only: true
+  train_state_proj: true
+  # ----------------------------------------------------------
+  # Optimizer preset
+  # ----------------------------------------------------------
+  # LeRobot's official SmolVLA LoRA example recommends
+  # increasing the LR relative to normal full fine-tuning.
+  optimizer_lr: 1.0e-3
+
+  optimizer_betas:
+    - 0.9
+    - 0.95
+
+  optimizer_eps: 1.0e-8
+
+  optimizer_weight_decay: 1.0e-10
+
+  optimizer_grad_clip_norm: 10.0
+
+
+  # ----------------------------------------------------------
+  # Scheduler
+  # ----------------------------------------------------------
+
+  # 10% warmup for the initial 5000-step experiment.
+  scheduler_warmup_steps: 500
+
+  scheduler_decay_steps: 5000
+
+  scheduler_decay_lr: 1.0e-4
+
+
+  # ----------------------------------------------------------
+  # Architecture — pinned explicitly for reproducibility
+  # ----------------------------------------------------------
+
+  vlm_model_name: HuggingFaceTB/SmolVLM2-500M-Video-Instruct
+
+  load_vlm_weights: true
+
+  add_image_special_tokens: false
+
+  attention_mode: cross_attn
+
+  prefix_length: 0
+
+  pad_language_to: max_length
+
+  num_expert_layers: 0
+
+  num_vlm_layers: 16
+
+  self_attn_every_n_layers: 2
+
+  expert_width_multiplier: 0.75
+
+  min_period: 0.004
+
+  max_period: 4.0
+
+
+# ============================================================
+# PEFT / LoRA
+# ============================================================
+
+peft:
+  method_type: LORA
+
+  # Conservative starting point for an 8 GB laptop GPU.
+  r: 8
+
+  # scaling = alpha / r = 1
+  lora_alpha: 8
+
+  # null tells SmolVLA to use its built-in target modules:
+  #
+  # LM expert q/v projections
+  # + state/action projection layers
+  target_modules: null
+
+  full_training_modules: null
+
+  init_type: null
+
+
+# ============================================================
+# Data loader / physical batch
+# ============================================================
+
+batch_size: 8
+num_workers: 2
+prefetch_factor: 2
+persistent_workers: true
+dataloader_multiprocessing_context: spawn
+
+# ============================================================
+# Accelerator
+# ============================================================
+
+accelerator:
+  mixed_precision: bf16
+  gradient_accumulation:
+    steps: 1
+
+# ============================================================
+# Parallelism
+# ============================================================
+
+parallelism:
+  dp_replicate: 1
+  dp_shard: 1
+  cfg_parallel: 1
+  context_parallel:
+    ring_degree: 1
+    ulysses_degree: 1
+
+# ============================================================
+# Optimizer / scheduler construction
+# ============================================================
+# Use the SmolVLA optimizer/scheduler fields above.
+use_policy_training_preset: true
+optimizer: null
+scheduler: null
+
+# ============================================================
+# Training length
+# ============================================================
+# Training
+steps: 5000
+log_freq: 50
+
+
+# ============================================================
+# Checkpoints
+# ============================================================
+save_checkpoint: true
+save_freq: 500
+checkpoint_format: safetensors
+save_checkpoint_to_hub: false
+
+
+
+# ============================================================
+# EMA
+# ============================================================
+ema:
+  enable: false
+  decay: null
+  update_after_step: 0
+  inv_gamma: 1.0
+  power: 0.75
+  min_decay: 0.0
+  max_decay: 0.9999
+  use_for_eval: true
+
+# ============================================================
+# Inert built-in eval config
+# ============================================================
+# These are not used because env_eval_freq = 0.
+eval:
+  n_episodes: 50
+  batch_size: 1
+  use_async_envs: false
+  recording: false
+  recording_private: false
+  recording_repo_id: null
+# ============================================================
+# WandB
+# ============================================================
+wandb:
+  enable: false
+  disable_artifact: false
+  project: lerobot
+  entity: null
+  notes: null
+  run_id: null
+  mode: null
+  add_tags: true
+
+# ============================================================
+# Execution target
+# ============================================================
+job:
+  target: null
+  image: huggingface/lerobot-gpu:latest
+  timeout: 2d
+
+# ============================================================
+# Miscellaneous
+# ============================================================
+tolerance_s: 0.0001
+rename_map: {}
+ 
