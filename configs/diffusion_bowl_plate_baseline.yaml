@@ -138,8 +138,8 @@ accelerator:
 
 
 # Output
-output_dir: /home/yjc1989/ML/robot-learning-project1/results/diffusion_baseline2
-job_name: diffusion_bowl_plate_baseline2
+output_dir: /home/yjc1989/ML/robot-learning-project1/results/diffusion_baseline
+job_name: diffusion_bowl_plate_baseline
 
 
 wandb:

@@ -115,8 +115,8 @@ accelerator:
 
 
 # Output
-output_dir: /home/yjc1989/ML/robot-learning-project1/results/act_baseline3
-job_name: act_bowl_plate_baseline3
+output_dir: /home/yjc1989/ML/robot-learning-project1/results/act_baseline
+job_name: act_bowl_plate_baseline
 
 
 wandb:
